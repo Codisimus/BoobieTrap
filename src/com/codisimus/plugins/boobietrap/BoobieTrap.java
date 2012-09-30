@@ -3,6 +3,7 @@ package com.codisimus.plugins.boobietrap;
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Properties;
 import java.util.logging.Logger;
 import org.bukkit.Location;
@@ -14,6 +15,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -26,8 +28,9 @@ public class BoobieTrap extends JavaPlugin implements Listener {
     private static BukkitScheduler scheduler;
     private static Logger logger;
     private static HashMap<Location, Integer> explosives = new HashMap<Location, Integer>();
-    Properties p;
-    int delay = 5;
+    private Properties p;
+    private int delay = 5;
+    private boolean noLandDamage = false;
 
     @Override
     public void onEnable () {
@@ -68,6 +71,7 @@ public class BoobieTrap extends JavaPlugin implements Listener {
             p.load(fis);
 
             delay = Integer.parseInt(loadValue("Delay"));
+            noLandDamage = Boolean.parseBoolean(loadValue("NoLandDamage"));
         } catch (Exception missingProp) {
             logger.severe("Failed to load BoobieTrap " + this.getDescription().getVersion());
             missingProp.printStackTrace();
@@ -94,7 +98,7 @@ public class BoobieTrap extends JavaPlugin implements Listener {
         return p.getProperty(key);
     }
 
-    @EventHandler (ignoreCancelled=true, priority = EventPriority.MONITOR)
+    @EventHandler (ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onChestOpen(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
@@ -105,7 +109,7 @@ public class BoobieTrap extends JavaPlugin implements Listener {
             return;
         }
 
-        final Inventory inv = ((Chest)block.getState()).getInventory();
+        final Inventory inv = ((Chest) block.getState()).getInventory();
         if (isExplosive(inv)) {
             final Location location = block.getLocation();
             if (explosives.containsKey(location)) {
@@ -117,13 +121,13 @@ public class BoobieTrap extends JavaPlugin implements Listener {
                 public void run() {
                     inv.clear();
                     block.setTypeId(0);
-                    block.getWorld().createExplosion(location.add(0, 2, 0), 6F, true);
+                    block.getWorld().createExplosion(location.add(0, 2, 0), 6F, !noLandDamage);
                 }
             }, delay * 20L));
         }
     }
 
-    @EventHandler (ignoreCancelled=true, priority = EventPriority.MONITOR)
+    @EventHandler (ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockBreak(BlockBreakEvent event) {
         Location location = event.getBlock().getLocation();
         if (!explosives.containsKey(location)) {
@@ -132,6 +136,18 @@ public class BoobieTrap extends JavaPlugin implements Listener {
 
         scheduler.cancelTask(explosives.get(location));
         explosives.remove(location);
+    }
+    
+    @EventHandler (ignoreCancelled = true, priority = EventPriority.HIGHEST)
+    public void onEntityExplode(EntityExplodeEvent event) {
+        if (noLandDamage) {
+            Block explosive = event.getLocation().subtract(0, 2, 0).getBlock();
+            if (explosives.containsKey(explosive.getLocation())) {
+                List<Block> blockList = event.blockList();
+                blockList.clear();
+                blockList.add(explosive);
+            }
+        }
     }
 
     public boolean isExplosive(Inventory inv) {
