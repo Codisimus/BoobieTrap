@@ -6,16 +6,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
 import java.util.logging.Logger;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.inventory.InventoryEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -115,6 +119,11 @@ public class BoobieTrap extends JavaPlugin implements Listener {
             if (explosives.containsKey(location)) {
                 return;
             }
+            
+            Player player = event.getPlayer();
+            if (!player.hasPermission("boobietrap.trigger")) {
+                return;
+            }
 
             explosives.put(location, scheduler.scheduleAsyncDelayedTask(this, new Runnable() {
                 @Override
@@ -124,6 +133,22 @@ public class BoobieTrap extends JavaPlugin implements Listener {
                     block.getWorld().createExplosion(location.add(0, 2, 0), 6F, !noLandDamage);
                 }
             }, delay * 20L));
+        }
+    }
+
+    @EventHandler (ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onChestClose(InventoryEvent event) {
+        Inventory inventory = event.getInventory();
+        if (inventory.getType() != InventoryType.CHEST) {
+            return;
+        }
+        
+        if (isExplosive(inventory)) {
+            Player player = (Player) event.getView().getPlayer();
+            if (!player.hasPermission("boobietrap.set")) {
+                inventory.clear(4);
+                player.sendMessage(ChatColor.RED+"You do not have permission to set BoobieTraps");
+            }
         }
     }
 

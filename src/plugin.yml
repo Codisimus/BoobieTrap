@@ -5,3 +5,8 @@ author: Codisimus
 website: www.codisimus.com
 description: Place Boobie Traps in Chests
 startup: postworld
+permissions:
+  boobietrap.set:
+    description: Needed to create an explosive chest
+  boobietrap.trigger:
+    description: Needed to activate an explosive chest
